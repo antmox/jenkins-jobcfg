@@ -27,7 +27,7 @@
 #
 # For more information, please refer to <https://unlicense.org>
 
-import sys, os, re, getpass, json, collections, warnings
+import sys, os, re, getpass, json, collections, warnings, base64
 
 try:
     assert 0x02070000 <= sys.hexversion < 0x03000000
@@ -149,8 +149,8 @@ def jenkins_config(config_file, config_id=None):
         config_usr = (
             raw_input('jenkins username [%s]: ' % def_config_usr)
             or def_config_usr)
-        config_pwd = getpass.getpass(
-            'jenkins password for %s: ' % config_usr)
+        config_pwd = base64.b64encode(getpass.getpass(
+            'jenkins password for %s: ' % config_usr))
 
         jenkins_check_config((config_url, config_usr, config_pwd))
 
@@ -185,7 +185,7 @@ def jenkins_request(
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
         response = request_func(
-            jenkins_url + req_url, auth=(jenkins_user, jenkins_pass),
+            jenkins_url + req_url, auth=(jenkins_user, base64.b64decode(jenkins_pass)),
             params=params, data=data, headers=headers, verify=False)
     return response
 
