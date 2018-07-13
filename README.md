@@ -33,3 +33,9 @@ Configure jenkins jobs by editing human friendly yaml description files
 
     $ ./jenkins-jobcfg.py delete example-git-trigger-new
     example-git-trigger-new deleted
+
+## Requirements:
+
+Requires python 2.x and some python modules, for instance on deb systems:
+
+    $ sudo apt-get install python python-requests python-xmltodict python-yaml
