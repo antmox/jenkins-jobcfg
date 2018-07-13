@@ -107,7 +107,7 @@ def jenkins_check_config(config):
     assert response.status_code == 200
 
 def jenkins_configs(config_file):
-    all_configs = os.path.isfile(config_file) and yaml.load(
+    all_configs = os.path.isfile(config_file) and yaml.safe_load(
         open(config_file, 'r').read()) or []
     return all_configs
 
