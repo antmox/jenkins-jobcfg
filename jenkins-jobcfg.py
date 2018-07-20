@@ -193,6 +193,9 @@ def jenkins_crumb(config):
     response = jenkins_request(
         config, 'GET',
         '/crumbIssuer/api/xml?xpath=concat(//crumbRequestField,":",//crumb)')
+    if response.status_code == 404:
+        # assume that we have no crumb to issue if crumbIssuer is not found
+        return {}
     assert response.status_code == 200
     return dict([tuple(response.content.split(':'))])
 
