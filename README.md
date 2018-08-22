@@ -38,4 +38,5 @@ Configure jenkins jobs by editing human friendly yaml description files
 
 Requires python 2.x and some python modules, for instance on deb systems:
 
-    $ sudo apt-get install python python-requests python-xmltodict python-yaml
+    $ sudo apt-get install python python-pip
+    $ pip install requests PyYAML xmlplain

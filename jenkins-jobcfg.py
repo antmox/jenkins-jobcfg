@@ -27,7 +27,8 @@
 #
 # For more information, please refer to <https://unlicense.org>
 
-import sys, os, re, getpass, json, collections, warnings, base64
+import sys, os, re, getpass, json, collections, warnings, base64, StringIO
+import contextlib
 
 try:
     assert 0x02070000 <= sys.hexversion < 0x03000000
@@ -36,7 +37,7 @@ except:
     sys.exit(1)
 
 try:
-    import yaml, requests, xmltodict
+    import yaml, requests, xmlplain
 except ImportError as e:
     print >>sys.stderr, 'error: ' + e.message
     sys.exit(1)
@@ -59,43 +60,16 @@ except ImportError as e:
 # ####################################################################
 
 def xml2yaml(in_str):
-    def dict_representer(dumper, data):
-        return dumper.represent_dict(data.iteritems())
-
-    # use block literals for multiline strings
-    # https://stackoverflow.com/a/33300001
-    def str_presenter(dumper, data):
-        if len(data.splitlines()) > 1:  # check for multiline string
-            # remove special characters or block style wont be allowed by yaml
-            # module :( there is surely other chars to replace (cf emitter.py)
-            data = data.replace('\r', '')
-            return dumper.represent_scalar(
-                'tag:yaml.org,2002:str', data, style='|')
-        return dumper.represent_scalar('tag:yaml.org,2002:str', data)
-
-    yaml.add_representer(collections.OrderedDict, dict_representer)
-    yaml.add_representer(unicode, str_presenter)
-
-    return yaml.dump(
-        xmltodict.parse(in_str), allow_unicode=True, default_flow_style=False)
-
-def ordered_load(
-        stream, Loader=yaml.Loader, object_pairs_hook=collections.OrderedDict):
-    # load in ordered dict to keep fields ordered
-    # https://stackoverflow.com/a/21912744
-    class OrderedLoader(Loader): pass
-
-    def construct_mapping(loader, node):
-        loader.flatten_mapping(node)
-        return object_pairs_hook(loader.construct_pairs(node))
-
-    OrderedLoader.add_constructor(
-        yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG,
-        construct_mapping)
-    return yaml.load(stream, OrderedLoader)
+    return xmlplain.obj_to_yaml(
+        xmlplain.xml_to_obj(
+            StringIO.StringIO(in_str), strip_space=True, fold_dict=True))
 
 def yaml2xml(in_str):
-    return xmltodict.unparse(ordered_load(in_str), pretty=True)
+    with contextlib.closing(StringIO.StringIO()) as outf:
+        xmlplain.xml_from_obj(
+            xmlplain.obj_from_yaml(StringIO.StringIO(in_str)),
+            outf=outf, pretty=True)
+        return outf.getvalue()
 
 
 # ####################################################################
@@ -185,7 +159,8 @@ def jenkins_request(
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
         response = request_func(
-            jenkins_url + req_url, auth=(jenkins_user, base64.b64decode(jenkins_pass)),
+            jenkins_url + req_url, auth=(
+                jenkins_user, base64.b64decode(jenkins_pass)),
             params=params, data=data, headers=headers, verify=False)
     return response
 
