@@ -27,7 +27,7 @@
 #
 # For more information, please refer to <https://unlicense.org>
 
-import sys, os, re, getpass, json, collections, warnings, base64, StringIO
+import sys, os, re, getpass, json, collections, warnings, base64
 import contextlib
 
 try:
@@ -61,15 +61,14 @@ except ImportError as e:
 
 def xml2yaml(in_str):
     return xmlplain.obj_to_yaml(
-        xmlplain.xml_to_obj(
-            StringIO.StringIO(in_str), strip_space=True, fold_dict=True))
+        xmlplain.xml_to_obj(in_str,
+                            strip_space=True,
+                            fold_dict=True,
+                            process_content=lambda x: x.replace('\r', '')))
 
 def yaml2xml(in_str):
-    with contextlib.closing(StringIO.StringIO()) as outf:
-        xmlplain.xml_from_obj(
-            xmlplain.obj_from_yaml(StringIO.StringIO(in_str)),
-            outf=outf, pretty=True)
-        return outf.getvalue()
+    return xmlplain.xml_from_obj(xmlplain.obj_from_yaml(in_str),
+                                 outf=None, pretty=True)
 
 
 # ####################################################################
