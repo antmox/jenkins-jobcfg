@@ -61,7 +61,10 @@ except ImportError as e:
 
 def xml2yaml(in_str):
     return xmlplain.obj_to_yaml(
-        xmlplain.xml_to_obj(in_str, strip_space=True, fold_dict=True))
+        xmlplain.xml_to_obj(in_str,
+                            strip_space=True,
+                            fold_dict=True,
+                            process_content=lambda x: x.replace('\r', '')))
 
 def yaml2xml(in_str):
     return xmlplain.xml_from_obj(xmlplain.obj_from_yaml(in_str),
