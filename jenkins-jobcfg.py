@@ -181,7 +181,7 @@ def jenkins_job_list(config):
     assert response.status_code == 200
     return map(lambda x: x['name'], json.loads(response.content)['jobs'])
 
-def jenkins_fetch_config(config, job_name):
+def jenkins_fetch_config(config, job_name, dump_xml=False):
     try:
         response = jenkins_request(
             config, 'GET', '/job/%s/config.xml' % (job_name))
@@ -190,7 +190,7 @@ def jenkins_fetch_config(config, job_name):
         print >>sys.stderr, (
             'warning: unable to fetch config for job %s' % job_name)
         return
-    if False:  # also dump xml config file
+    if dump_xml:
         xml_config = 'config-%s.xml' % (job_name)
         with open(xml_config, 'wb') as outf:
             outf.write(response.content)
@@ -200,15 +200,22 @@ def jenkins_fetch_config(config, job_name):
         outf.write(xml2yaml(response.content))
     print yaml_config
 
-def jenkins_push_config(config, job_name, job_config_file):
+def jenkins_push_config(
+        config, job_name, job_config_file, dump_xml=False, dryrun=False):
     data = open(job_config_file, 'r').read()
     try:
         if job_config_file.endswith('.yaml'):
             data = yaml2xml(data)
-        response = jenkins_request(
-            config, 'POST', '/job/%s/config.xml' % (job_name),
-            data=data, headers={'Content-Type': 'application/xml'})
-        assert response.status_code == 200
+        if dump_xml:
+            xml_config = 'config-%s.xml' % (job_name)
+            with open(xml_config, 'wb') as outf:
+                outf.write(data)
+            print xml_config
+        if not dryrun:
+            response = jenkins_request(
+                config, 'POST', '/job/%s/config.xml' % (job_name),
+                data=data, headers={'Content-Type': 'application/xml'})
+            assert response.status_code == 200
     except:
         print >>sys.stderr, (
             'warning: unable to push config for job %s' % job_name)
@@ -272,12 +279,21 @@ if __name__ == '__main__':
         help='fetch jenkins job configuration')
     parser_fetch.add_argument(
         'job_names', help='jenkins job names', nargs='*')
+    parser_fetch.add_argument(
+        '--xml', dest='xml', action='store_true',
+        help='also dump xml config file')
 
     parser_push = subparsers.add_parser(
         'push', description='push jenkins job configuration',
         help='push jenkins job configuration')
     parser_push.add_argument(
         'config_files', help='jenkins config files', nargs='*')
+    parser_push.add_argument(
+        '--xml', dest='xml', action='store_true',
+        help='also dump xml config file')
+    parser_push.add_argument(
+        '-n', '--dryrun', dest='dryrun', action='store_true',
+        help='only dump config file (implies --xml)')
 
     parser_create = subparsers.add_parser(
         'create', description='create jenkins job from configuration',
@@ -307,16 +323,19 @@ if __name__ == '__main__':
         if args.job_names == ['all']:
             args.job_names = jenkins_job_list(config)
         for jobname in args.job_names:
-            jenkins_fetch_config(config, jobname)
+            jenkins_fetch_config(config, jobname, dump_xml=args.xml)
 
     elif args.action == 'push':
+        args.xml = args.xml or args.dryrun
         for job_config in args.config_files:
             re_obj = re.match('^config-(.*)\.[^.]*$', job_config)
             if not re_obj:
                 print >>sys.stderr, 'warning: ignored config file', job_config
                 print >>sys.stderr, '(expected "config-<jobname>.(xml|yaml)")'
                 continue
-            jenkins_push_config(config, re_obj.group(1), job_config)
+            jenkins_push_config(
+                config, re_obj.group(1), job_config, dump_xml=args.xml,
+                dryrun=args.dryrun)
 
     elif args.action == 'create':
         for job_config in args.config_files:
