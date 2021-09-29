@@ -123,7 +123,7 @@ def jenkins_config(config_file, config_id=None):
             raw_input('jenkins username [%s]: ' % def_config_usr)
             or def_config_usr)
         config_pwd = base64.b64encode(getpass.getpass(
-            'jenkins password for %s: ' % config_usr))
+            'jenkins token for %s: ' % config_usr))
 
         jenkins_check_config((config_url, config_usr, config_pwd))
 
@@ -152,8 +152,6 @@ def jenkins_request(
     params = params or {}
 
     headers = headers and dict(headers) or {}
-    if req_type == 'POST':
-        headers.update(jenkins_crumb(config))
 
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
