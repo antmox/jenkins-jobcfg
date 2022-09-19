@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 #
 # The Unlicense
 #
@@ -31,15 +31,15 @@ import sys, os, re, getpass, json, collections, warnings, base64
 import contextlib
 
 try:
-    assert 0x02070000 <= sys.hexversion < 0x03000000
+    assert 0x03000000 <= sys.hexversion
 except:
-    print >>sys.stderr, 'error: python-2.7 only'
+    print('error: python-3 only', file=sys.stderr)
     sys.exit(1)
 
 try:
     import yaml, requests, xmlplain
 except ImportError as e:
-    print >>sys.stderr, 'error: ' + e.message
+    print('error: ' + e.message, file=sys.stderr)
     sys.exit(1)
 
 
@@ -92,11 +92,12 @@ def jenkins_config(config_file, config_id=None):
     # use an OrderedDict to keep the first config first (used by default)
     #   OrderedDict({'cfg1': {...}, 'cfg2': {...}})
     all_configs = collections.OrderedDict(
-        sum(map(lambda d: d.items(), all_configs), []))
+        sum((list(d.items()) for d in all_configs), []))
 
     # use the given config id, or the first one in config_file, or 'default'
     config_id = (
-        config_id or (all_configs and all_configs.keys()[0]) or 'default')
+        config_id or (all_configs and next(iter(all_configs.keys())))
+        or 'default')
 
     # get existing config values
     config_dict = all_configs.get(config_id, {})
@@ -117,28 +118,30 @@ def jenkins_config(config_file, config_id=None):
         def_config_usr = config_usr or os.getenv('USER')
 
         config_url = (
-            raw_input('jenkins url [%s]: ' % def_config_url)
+            input('jenkins url [%s]: ' % def_config_url)
             or def_config_url)
         config_usr = (
-            raw_input('jenkins username [%s]: ' % def_config_usr)
+            input('jenkins username [%s]: ' % def_config_usr)
             or def_config_usr)
-        config_pwd = base64.b64encode(getpass.getpass(
-            'jenkins token for %s: ' % config_usr))
+
+        config_pwd = getpass.getpass(
+            'jenkins token for %s: ' % config_usr).encode()
+        config_pwd = base64.b64encode(config_pwd).decode()
 
         jenkins_check_config((config_url, config_usr, config_pwd))
 
         # update config file on success
         all_configs[config_id] = {
             'url': config_url, 'username': config_usr, 'password': config_pwd}
-        open(config_file, 'wb').write(yaml.dump(
-            map(lambda (k, v): {k: v}, all_configs.items()),
+        open(config_file, 'w').write(yaml.dump(
+            [{k_v[0]: k_v[1]} for k_v in list(all_configs.items())],
             default_flow_style=False))
-        os.chmod(config_file, 0600)
+        os.chmod(config_file, 0o600)
 
         return (config_url, config_usr, config_pwd)
 
     except Exception as e:
-        print >>sys.stderr, 'error: config check failure'
+        print('error: config check failure', file=sys.stderr)
         sys.exit(1)
 
 def jenkins_request(
@@ -177,7 +180,7 @@ def jenkins_crumb(config):
 def jenkins_job_list(config):
     response = jenkins_request(config, 'GET', '/api/json')
     assert response.status_code == 200
-    return map(lambda x: x['name'], json.loads(response.content)['jobs'])
+    return (x['name'] for x in json.loads(response.content)['jobs'])
 
 def jenkins_fetch_config(config, job_name, dump_xml=False):
     try:
@@ -185,18 +188,18 @@ def jenkins_fetch_config(config, job_name, dump_xml=False):
             config, 'GET', '/job/%s/config.xml' % (job_name))
         assert response.status_code == 200
     except:
-        print >>sys.stderr, (
-            'warning: unable to fetch config for job %s' % job_name)
+        print((
+            'warning: unable to fetch config for job %s' % job_name), file=sys.stderr)
         return
     if dump_xml:
         xml_config = 'config-%s.xml' % (job_name)
         with open(xml_config, 'wb') as outf:
             outf.write(response.content)
-        print xml_config
+        print(xml_config)
     yaml_config = 'config-%s.yaml' % (job_name)
     with open(yaml_config, 'wb') as outf:
         outf.write(xml2yaml(response.content))
-    print yaml_config
+    print(yaml_config)
 
 def jenkins_push_config(
         config, job_name, job_config_file, dump_xml=False, dryrun=False):
@@ -208,17 +211,17 @@ def jenkins_push_config(
             xml_config = 'config-%s.xml' % (job_name)
             with open(xml_config, 'wb') as outf:
                 outf.write(data)
-            print xml_config
+            print(xml_config)
         if not dryrun:
             response = jenkins_request(
                 config, 'POST', '/job/%s/config.xml' % (job_name),
                 data=data, headers={'Content-Type': 'application/xml'})
             assert response.status_code == 200
     except:
-        print >>sys.stderr, (
-            'warning: unable to push config for job %s' % job_name)
+        print((
+            'warning: unable to push config for job %s' % job_name), file=sys.stderr)
         return
-    print job_config_file
+    print(job_config_file)
 
 def jenkins_create_job(config, job_name, job_config_file):
     data = open(job_config_file, 'r').read()
@@ -231,10 +234,10 @@ def jenkins_create_job(config, job_name, job_config_file):
             data=data, headers={'Content-Type': 'application/xml'})
         assert response.status_code == 200
     except:
-        print >>sys.stderr, (
-            'warning: unable to create job %s' % job_name)
+        print((
+            'warning: unable to create job %s' % job_name), file=sys.stderr)
         return
-    print job_config_file
+    print(job_config_file)
 
 def jenkins_delete_job(config, job_name):
     try:
@@ -242,10 +245,10 @@ def jenkins_delete_job(config, job_name):
             config, 'POST', '/job/%s/doDelete' % (job_name))
         assert response.status_code == 200
     except:
-        print >>sys.stderr, (
-            'warning: unable to delete job %s' % job_name)
+        print((
+            'warning: unable to delete job %s' % job_name), file=sys.stderr)
         return
-    print job_name, 'deleted'
+    print(job_name, 'deleted')
 
 
 # ####################################################################
@@ -315,7 +318,7 @@ if __name__ == '__main__':
     config = jenkins_config(args.cfg_file, args.cfg_id)
 
     if args.action == 'list':
-        print '\n'.join(jenkins_job_list(config))
+        print('\n'.join(jenkins_job_list(config)))
 
     elif args.action == 'fetch':
         if args.job_names == ['all']:
@@ -328,8 +331,8 @@ if __name__ == '__main__':
         for job_config in args.config_files:
             re_obj = re.match('^config-(.*)\.[^.]*$', job_config)
             if not re_obj:
-                print >>sys.stderr, 'warning: ignored config file', job_config
-                print >>sys.stderr, '(expected "config-<jobname>.(xml|yaml)")'
+                print('warning: ignored config file', job_config, file=sys.stderr)
+                print('(expected "config-<jobname>.(xml|yaml)")', file=sys.stderr)
                 continue
             jenkins_push_config(
                 config, re_obj.group(1), job_config, dump_xml=args.xml,
@@ -339,8 +342,8 @@ if __name__ == '__main__':
         for job_config in args.config_files:
             re_obj = re.match('^config-(.*)\.[^.]*$', job_config)
             if not re_obj:
-                print >>sys.stderr, 'warning: ignored config file', job_config
-                print >>sys.stderr, '(expected "config-<jobname>.(xml|yaml)")'
+                print('warning: ignored config file', job_config, file=sys.stderr)
+                print('(expected "config-<jobname>.(xml|yaml)")', file=sys.stderr)
                 continue
             jenkins_create_job(config, re_obj.group(1), job_config)
 
@@ -351,11 +354,11 @@ if __name__ == '__main__':
     elif args.action == 'config':
         all_configs = yaml.dump(
             jenkins_configs(args.cfg_file), default_flow_style=False)
-        print '#'
-        print '#', args.cfg_file
-        print '#'
-        print
-        print re.sub('password: .*', 'password: *****', all_configs)
+        print('#')
+        print('#', args.cfg_file)
+        print('#')
+        print()
+        print(re.sub('password: .*', 'password: *****', all_configs))
 
     else: assert 0
 
