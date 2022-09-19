@@ -61,7 +61,9 @@ except ImportError as e:
 
 def xml2yaml(in_str):
     def universal_newlines(x):
-        return x.replace('\r\n', '\n').replace('\r', '\n')
+        x = x.replace('\r\n', '\n').replace('\r', '\n')
+        # https://github.com/yaml/pyyaml/issues/411
+        return "\n".join(l.rstrip() for l in x.splitlines())
     return xmlplain.obj_to_yaml(
         xmlplain.xml_to_obj(in_str, strip_space=True, fold_dict=True),
         process_string=universal_newlines)
